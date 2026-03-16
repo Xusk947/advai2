@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +18,10 @@ CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 PACMAN_CHECKPOINT = CHECKPOINT_DIR / "pacman_dqn.pt"
 GHOST_CHECKPOINT_PATTERN = "ghost_{}_dqn.pt"
 EPISODE_NUM_FILE = CHECKPOINT_DIR / "episode.txt"
+
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+EVAL_LOG_FILE = LOG_DIR / "eval_runs.jsonl"
 
 
 def _read_start_episode() -> int:
@@ -224,6 +230,27 @@ def main() -> None:
                 eval_steps += 1
                 eval_ghost_hits = eval_step.info["ghost_hits"]
                 eval_done = eval_step.done
+
+            # Логируем данные eval-забега для последующего анализа / построения метрик.
+            # Формат: одна JSON-строка на строку (JSONL), чтобы удобно читать и агрегировать.
+            eval_log_entry = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "episode_num": episode_num,
+                "steps": eval_steps,
+                "reward": float(eval_reward),
+                "pills_eaten": int(env.pills_eaten),
+                "power_pills_eaten": int(env.power_pills_eaten),
+                "ghost_hits": int(eval_ghost_hits),
+                "ghosts_eaten": int(env.ghosts_eaten),
+                "max_steps": int(env.max_steps if env.max_steps is not None else -1),
+            }
+            try:
+                with EVAL_LOG_FILE.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps(eval_log_entry, ensure_ascii=False) + "\n")
+            except OSError:
+                # Не ломаем обучение, если по какой-то причине не можем записать лог.
+                pass
+
             print(
                 f"  [eval] steps={eval_steps}, reward={eval_reward:.2f}, "
                 f"pills={env.pills_eaten}, power_pills={env.power_pills_eaten}, "

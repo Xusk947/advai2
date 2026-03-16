@@ -97,6 +97,7 @@ class PygameRenderer:
         ghost_rewards: dict[str, float] | None = None,
         max_steps: int | None = None,
         level_num: int | None = None,
+        eval_history: list[tuple[int, float]] | None = None,
     ) -> dict:
         assert self.env.level is not None
         assert self.env.pacman is not None
@@ -234,6 +235,9 @@ class PygameRenderer:
             level_index=level_idx,
         )
 
+        if eval_history:
+            self._draw_eval_history(eval_history)
+
         pygame.display.flip()
         self.clock.tick(fps)
         return {
@@ -246,3 +250,48 @@ class PygameRenderer:
             "new_max_steps_index": new_max_steps_index,
             "switch_level": switch_level,
         }
+
+    def _draw_eval_history(self, eval_history: list[tuple[int, float]]) -> None:
+        """Рисует маленький график reward по eval-эпизодам в правом верхнем углу."""
+        if not eval_history:
+            return
+
+        max_points = 100
+        data = eval_history[-max_points:]
+        rewards = [r for _, r in data]
+        if not rewards:
+            return
+
+        chart_width = 220
+        chart_height = 80
+        margin = 8
+
+        x0 = self._game_width - chart_width - margin
+        y0 = margin + 24  # чуть ниже текста Reward
+
+        chart_rect = pygame.Rect(x0, y0, chart_width, chart_height)
+        pygame.draw.rect(self.screen, (15, 15, 25), chart_rect)
+        pygame.draw.rect(self.screen, (80, 80, 100), chart_rect, 1)
+
+        min_r = min(rewards)
+        max_r = max(rewards)
+        if max_r == min_r:
+            max_r += 1.0
+
+        def to_screen(i: int, r: float) -> tuple[int, int]:
+            t = i / max(1, len(data) - 1)
+            x = x0 + int(t * (chart_width - 10)) + 5
+            norm = (r - min_r) / (max_r - min_r)
+            y = y0 + chart_height - 6 - int(norm * (chart_height - 12))
+            return x, y
+
+        points = [to_screen(i, r) for i, r in enumerate(rewards)]
+        if len(points) >= 2:
+            pygame.draw.lines(self.screen, (80, 200, 255), False, points, 2)
+        else:
+            pygame.draw.circle(self.screen, (80, 200, 255), points[0], 2)
+
+        label = f"eval r: {min_r:.0f}..{max_r:.0f}"
+        surf = self._text.render(label, (200, 220, 255))
+        if surf is not None:
+            self.screen.blit(surf, (x0 + 6, y0 + 4))

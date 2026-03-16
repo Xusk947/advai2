@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 from env.ghosts import GhostMode
@@ -27,6 +29,9 @@ LEVEL_PATHS = ["assets/level1.png", "assets/level2.png"]
 MAX_STEPS_PRESETS = [64, 128, 256, 284, 512]
 DEFAULT_MAX_STEPS_INDEX = 2  # 256
 
+LOG_DIR = Path("logs")
+EVAL_LOG_FILE = LOG_DIR / "eval_runs.jsonl"
+
 
 @dataclass
 class RenderResult:
@@ -38,6 +43,35 @@ class RenderResult:
     max_steps_up: bool
     new_max_steps_index: int | None
     switch_level: int | None
+
+
+def _load_eval_history(max_points: int = 200) -> List[Tuple[int, float]]:
+    """
+    Читает последние max_points строк из лога eval-забегов и возвращает (episode_num, reward).
+    Если файла ещё нет или формат битый — возвращает пустой список, не ломая live view.
+    """
+    if not EVAL_LOG_FILE.exists():
+        return []
+    try:
+        lines = EVAL_LOG_FILE.read_text(encoding="utf-8").splitlines()[-max_points:]
+    except OSError:
+        return []
+
+    history: List[Tuple[int, float]] = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        ep = obj.get("episode_num")
+        r = obj.get("reward")
+        if isinstance(ep, int) and isinstance(r, (int, float)):
+            history.append((ep, float(r)))
+    history.sort(key=lambda x: x[0])
+    return history
 
 
 def main() -> None:
@@ -74,6 +108,7 @@ def main() -> None:
                 continue
 
             episode_num = read_training_episode_num()
+            eval_history = _load_eval_history()
             env.max_steps = MAX_STEPS_PRESETS[max_steps_index]
             state = env.reset()
             state_dim = state.shape[0]
@@ -164,6 +199,7 @@ def main() -> None:
                     ghost_rewards=ghost_cumulative,
                     max_steps=env.max_steps,
                     level_num=level_index + 1,
+                    eval_history=eval_history,
                 )
                 result = RenderResult(
                     restart=raw.get("restart", False),
@@ -260,6 +296,7 @@ def main() -> None:
                     episode_ended=True,
                     max_steps=MAX_STEPS_PRESETS[max_steps_index],
                     level_num=level_index + 1,
+                    eval_history=_load_eval_history(),
                 )
 
     finally:
