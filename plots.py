@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pygame
 
+from paths import LOG_DIR
 
-LOG_DIR = Path("logs")
+
 EVAL_LOG_FILE = LOG_DIR / "eval_runs.jsonl"
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -11,16 +10,13 @@ import torch
 from env.ghosts import GhostMode
 from env.pacman_env import PacmanEnv
 from rl.agent import AgentConfig, DQNAgent
+from paths import CHECKPOINT_DIR, LOG_DIR
 
 
-CHECKPOINT_DIR = Path("checkpoints")
-CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 PACMAN_CHECKPOINT = CHECKPOINT_DIR / "pacman_dqn.pt"
 GHOST_CHECKPOINT_PATTERN = "ghost_{}_dqn.pt"
 EPISODE_NUM_FILE = CHECKPOINT_DIR / "episode.txt"
 
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
 EVAL_LOG_FILE = LOG_DIR / "eval_runs.jsonl"
 
 

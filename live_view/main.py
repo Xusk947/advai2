@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict, List, Tuple
 
 from env.ghosts import GhostMode
 from env.pacman_env import PacmanEnv
 from game.pygame_renderer import PygameRenderer, SPEED_PRESETS
 from rl.agent import DQNAgent
+from paths import LOG_DIR
 
 from .agents import get_ghost_agents, load_pacman_agent, read_training_episode_num
 from .config import (
@@ -29,7 +29,6 @@ LEVEL_PATHS = ["assets/level1.png", "assets/level2.png"]
 MAX_STEPS_PRESETS = [64, 128, 256, 284, 512]
 DEFAULT_MAX_STEPS_INDEX = 2  # 256
 
-LOG_DIR = Path("logs")
 EVAL_LOG_FILE = LOG_DIR / "eval_runs.jsonl"
 
 

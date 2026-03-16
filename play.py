@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Dict
 
 import torch
@@ -8,9 +7,9 @@ import torch
 from env.pacman_env import PacmanEnv
 from game.pygame_renderer import PygameRenderer, SPEED_PRESETS
 from rl.agent import AgentConfig, DQNAgent
+from paths import CHECKPOINT_DIR
 
 
-CHECKPOINT_DIR = Path("checkpoints")
 PACMAN_CHECKPOINT = CHECKPOINT_DIR / "pacman_dqn.pt"
 GHOST_CHECKPOINT_PATTERN = "ghost_{}_dqn.pt"
 ANIMATION_FRAMES_PER_STEP = 6

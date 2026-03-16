@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Dict, Tuple
 
-CHECKPOINT_DIR = Path("checkpoints")
+from paths import CHECKPOINT_DIR
+
 PACMAN_CHECKPOINT = CHECKPOINT_DIR / "pacman_dqn.pt"
 GHOST_CHECKPOINT_PATTERN = "ghost_{}_dqn.pt"
 EPISODE_NUM_FILE = CHECKPOINT_DIR / "episode.txt"
