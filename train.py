@@ -209,6 +209,9 @@ def main() -> None:
             eval_reward = 0.0
             eval_steps = 0
             eval_ghost_hits = 0
+            eval_ghost_rewards = {key: 0.0 for key in env.ghosts}
+            eval_ghost_kills = {key: 0 for key in env.ghosts}
+            eval_ghosts_eaten = {key: 0 for key in env.ghosts}
             while not eval_done:
                 a = agent.select_action(
                     eval_state_vec,
@@ -229,6 +232,14 @@ def main() -> None:
                 eval_reward += eval_step.reward
                 eval_steps += 1
                 eval_ghost_hits = eval_step.info["ghost_hits"]
+                for key in env.ghosts:
+                    eval_ghost_rewards[key] += eval_step.info["ghost_rewards"][key]
+                for key in eval_step.info.get("ghosts_hit_pacman_this_step", []):
+                    if key in eval_ghost_kills:
+                        eval_ghost_kills[key] += 1
+                for key in eval_step.info.get("ghosts_eaten_this_step", []):
+                    if key in eval_ghosts_eaten:
+                        eval_ghosts_eaten[key] += 1
                 eval_done = eval_step.done
 
             # Логируем данные eval-забега для последующего анализа / построения метрик.
@@ -236,13 +247,26 @@ def main() -> None:
             eval_log_entry = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "episode_num": episode_num,
+                "run_type": "eval",
                 "steps": eval_steps,
-                "reward": float(eval_reward),
-                "pills_eaten": int(env.pills_eaten),
-                "power_pills_eaten": int(env.power_pills_eaten),
-                "ghost_hits": int(eval_ghost_hits),
-                "ghosts_eaten": int(env.ghosts_eaten),
-                "max_steps": int(env.max_steps if env.max_steps is not None else -1),
+                "env": {
+                    "max_steps": int(env.max_steps if env.max_steps is not None else -1),
+                    "pills_eaten": int(env.pills_eaten),
+                    "power_pills_eaten": int(env.power_pills_eaten),
+                    "ghost_hits": int(eval_ghost_hits),
+                    "ghosts_eaten": int(env.ghosts_eaten),
+                },
+                "pacman": {
+                    "total_reward": float(eval_reward),
+                },
+                "ghosts": {
+                    key: {
+                        "total_reward": float(eval_ghost_rewards.get(key, 0.0)),
+                        "kills_pacman": int(eval_ghost_kills.get(key, 0)),
+                        "times_eaten": int(eval_ghosts_eaten.get(key, 0)),
+                    }
+                    for key in env.ghosts
+                },
             }
             try:
                 with EVAL_LOG_FILE.open("a", encoding="utf-8") as f:
