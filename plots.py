@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import matplotlib.pyplot as plt
+import pygame
 
 
 LOG_DIR = Path("logs")
@@ -64,55 +64,147 @@ def _load_eval_data() -> Tuple[List[int], List[float], Dict[str, List[float]]]:
     return episodes, pacman_rewards, ghost_rewards_series
 
 
-def live_plot(refresh_seconds: float = 5.0) -> None:
-    """Простой live-плот: каждые N секунд перечитываем лог и обновляем графики."""
-    plt.ion()
-    fig, (ax_pacman, ax_ghosts) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
-    fig.suptitle("Pacman RL eval metrics (from logs/eval_runs.jsonl)")
+def _draw_axes(
+    screen: pygame.Surface,
+    rect: pygame.Rect,
+    episodes: List[int],
+    values: List[float],
+    color: Tuple[int, int, int],
+    label: str,
+    font: pygame.font.Font | None,
+) -> None:
+    """Рисует один линейный график в прямоугольнике rect."""
+    pygame.draw.rect(screen, (20, 20, 30), rect)
+    pygame.draw.rect(screen, (70, 70, 100), rect, 1)
 
-    last_len = -1
+    if not episodes or not values:
+        if font is not None:
+            text = font.render("Waiting for eval data...", True, (200, 200, 220))
+            screen.blit(text, (rect.x + 8, rect.y + 8))
+        return
+
+    xs = episodes
+    ys = values
+    min_y = min(ys)
+    max_y = max(ys)
+    if max_y == min_y:
+        max_y += 1.0
+
+    pad_x = 8
+    pad_y = 8
+    w = rect.width - 2 * pad_x
+    h = rect.height - 2 * pad_y
+    if w <= 0 or h <= 0:
+        return
+
+    points: List[Tuple[int, int]] = []
+    for i, y in enumerate(ys):
+        t = i / max(1, len(ys) - 1)
+        px = rect.x + pad_x + int(t * w)
+        norm = (y - min_y) / (max_y - min_y)
+        py = rect.y + pad_y + h - int(norm * h)
+        points.append((px, py))
+
+    if len(points) >= 2:
+        pygame.draw.lines(screen, color, False, points, 2)
+    else:
+        pygame.draw.circle(screen, color, points[0], 2)
+
+    if font is not None:
+        label_text = f"{label}  min={min_y:.1f}  max={max_y:.1f}"
+        text = font.render(label_text, True, (220, 220, 240))
+        screen.blit(text, (rect.x + 8, rect.y + 4))
+
+
+def live_plot(refresh_seconds: float = 1.0) -> None:
+    """Простой live-плот на pygame: каждые N секунд перечитываем лог и обновляем графики."""
+    pygame.init()
+    width, height = 900, 600
+    screen = pygame.display.set_mode((width, height))
+    pygame.display.set_caption("Pacman RL eval plots")
+    clock = pygame.time.Clock()
 
     try:
-        while True:
+        font = pygame.font.SysFont("consolas", 16)
+    except Exception:
+        font = None
+
+    last_reload_time = 0.0
+    episodes: List[int] = []
+    pacman_rewards: List[float] = []
+    ghost_rewards_series: Dict[str, List[float]] = {}
+
+    colors = {
+        "background": (10, 10, 16),
+        "pacman": (255, 215, 0),
+        "ghost_blinky": (255, 80, 80),
+        "ghost_pinky": (255, 105, 180),
+        "ghost_inky": (80, 200, 255),
+        "ghost_clyde": (255, 165, 0),
+        "ghost_default": (200, 200, 200),
+    }
+
+    running = True
+    while running:
+        now = time.time()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                running = False
+
+        if now - last_reload_time >= refresh_seconds:
+            last_reload_time = now
             episodes, pacman_rewards, ghost_rewards_series = _load_eval_data()
-            if len(episodes) == 0:
-                ax_pacman.clear()
-                ax_ghosts.clear()
-                ax_pacman.set_title("Waiting for eval data...")
-                ax_pacman.set_ylabel("Pacman reward")
-                ax_ghosts.set_ylabel("Ghost reward")
-                ax_ghosts.set_xlabel("Episode")
-                fig.canvas.draw()
-                fig.canvas.flush_events()
-                time.sleep(refresh_seconds)
-                continue
 
-            # Обновляем графики только если появились новые точки
-            if len(episodes) != last_len:
-                last_len = len(episodes)
-                ax_pacman.clear()
-                ax_ghosts.clear()
+        screen.fill(colors["background"])
 
-                ax_pacman.plot(episodes, pacman_rewards, label="Pacman reward", color="gold")
-                ax_pacman.set_ylabel("Pacman reward")
-                ax_pacman.legend(loc="upper left")
+        # Верхняя половина — Pacman
+        top_rect = pygame.Rect(20, 20, width - 40, (height - 60) // 2)
+        _draw_axes(
+            screen,
+            top_rect,
+            episodes,
+            pacman_rewards,
+            colors["pacman"],
+            "Pacman reward",
+            font,
+        )
 
-                for key, series in sorted(ghost_rewards_series.items()):
-                    ax_ghosts.plot(episodes, series, label=f"{key} reward")
-                ax_ghosts.set_ylabel("Ghost reward")
-                ax_ghosts.set_xlabel("Episode")
-                ax_ghosts.legend(loc="upper left")
+        # Нижняя половина — суммарный график призраков (по сумме их reward)
+        bottom_rect = pygame.Rect(
+            20, top_rect.bottom + 20, width - 40, (height - 60) // 2
+        )
+        if episodes and ghost_rewards_series:
+            # Для простоты — суммарный reward всех призраков на графике
+            ghost_sum = [
+                sum(series[i] for series in ghost_rewards_series.values())
+                for i in range(len(episodes))
+            ]
+            _draw_axes(
+                screen,
+                bottom_rect,
+                episodes,
+                ghost_sum,
+                colors["ghost_default"],
+                "Ghosts total reward (sum)",
+                font,
+            )
+        else:
+            _draw_axes(
+                screen,
+                bottom_rect,
+                [],
+                [],
+                colors["ghost_default"],
+                "Ghosts total reward (sum)",
+                font,
+            )
 
-                fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+        pygame.display.flip()
+        clock.tick(30)
 
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-            time.sleep(refresh_seconds)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        plt.ioff()
-        plt.show()
+    pygame.quit()
 
 
 if __name__ == "__main__":
