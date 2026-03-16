@@ -141,6 +141,22 @@ def _draw_axes(
         screen.blit(text, (rect.x + 8, rect.y + 4))
 
 
+def _smooth_series(values: List[float], window: int = 5) -> List[float]:
+    """Простое сглаживание скользящим средним по окну window."""
+    n = len(values)
+    if n == 0 or window <= 1:
+        return values
+    w = min(window, n)
+    out: List[float] = []
+    cumsum = 0.0
+    for i, v in enumerate(values):
+        cumsum += v
+        if i >= w:
+            cumsum -= values[i - w]
+        out.append(cumsum / min(i + 1, w))
+    return out
+
+
 def live_plot(refresh_seconds: float = 1.0) -> None:
     """Простой live-плот на pygame: каждые N секунд перечитываем лог и обновляем графики."""
     pygame.init()
@@ -198,13 +214,18 @@ def live_plot(refresh_seconds: float = 1.0) -> None:
         col_w = (width - 60) // 2
         row_h = (height - 80) // 2
 
+        # Сглаживаем основные ряды, чтобы графики были плавнее
+        smooth_pacman = _smooth_series(pacman_rewards, window=7)
+        smooth_pills = _smooth_series(pills_eaten.get("pills", []), window=7)
+        smooth_ghost_hits = _smooth_series(ghost_hits.get("ghost_hits", []), window=7)
+
         # Лево-верх: Pacman reward
         top_left = pygame.Rect(20, 20, col_w, row_h)
         _draw_axes(
             screen,
             top_left,
             episodes,
-            pacman_rewards,
+            smooth_pacman,
             colors["pacman"],
             "Pacman reward",
             font,
@@ -216,7 +237,7 @@ def live_plot(refresh_seconds: float = 1.0) -> None:
             screen,
             top_right,
             episodes,
-            pills_eaten.get("pills", []),
+            smooth_pills,
             (120, 220, 120),
             "Env: pills_eaten",
             font,
@@ -244,8 +265,9 @@ def live_plot(refresh_seconds: float = 1.0) -> None:
                     # каждая серия своим цветом
                     for key, series in sorted(ghost_rewards_series.items()):
                         color = colors.get(f"ghost_{key}", colors["ghost_default"])
+                        series_smooth = _smooth_series(series, window=7)
                         points: List[Tuple[int, int]] = []
-                        for i, y in enumerate(series):
+                        for i, y in enumerate(series_smooth):
                             t = i / max(1, len(series) - 1)
                             px = bottom_left.x + pad_x + int(t * w)
                             norm = (y - min_y) / (max_y - min_y)
@@ -270,7 +292,7 @@ def live_plot(refresh_seconds: float = 1.0) -> None:
             screen,
             bottom_right,
             episodes,
-            ghost_hits.get("ghost_hits", []),
+            smooth_ghost_hits,
             (220, 120, 120),
             "Env: ghost_hits (Pacman deaths)",
             font,

@@ -51,6 +51,26 @@ def _max_steps_for_episode(episode_num: int) -> int:
     return 512
 
 
+def _should_save_checkpoint(episode_num: int, is_last_episode: bool) -> bool:
+    """
+    Правила сохранения чекпоинтов:
+    - Всегда сохраняем в последнем эпизоде.
+    - Сохраняем в эпизодах: 100, 500, 1000, 3000, 5000, 10000, 15000.
+    - Начиная с 15000 — каждые +5000 эпизодов (20000, 25000, 30000, ...).
+    """
+    if is_last_episode:
+        return True
+
+    important = {100, 500, 1000, 3000, 5000, 10000, 15000}
+    if episode_num in important:
+        return True
+
+    if episode_num >= 15000 and (episode_num - 15000) % 5000 == 0:
+        return True
+
+    return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train Pacman and ghost DQN agents.")
     parser.add_argument(
@@ -176,9 +196,9 @@ def main() -> None:
             if step_result.done:
                 break
 
-        # Сохраняем чекпоинты каждые 5 эпизодов (меньше I/O); всегда сохраняем в последнем эпизоде
+        # Сохраняем чекпоинты по заданному расписанию; всегда сохраняем в последнем эпизоде
         is_last_episode = args.episodes is not None and i >= args.episodes - 1
-        if episode_num % 5 == 0 or is_last_episode:
+        if _should_save_checkpoint(episode_num, is_last_episode):
             torch.save(agent.policy_net.state_dict(), PACMAN_CHECKPOINT)
             for key in env.ghosts:
                 path = CHECKPOINT_DIR / GHOST_CHECKPOINT_PATTERN.format(key)
