@@ -100,14 +100,12 @@ class PacmanEnv(gym.Env):
             return self._get_obs(), {k: 0.0 for k in actions}, True, False, self._get_info()
 
         # Update Pacman
-        self._move_entity(self.pacman_pos, actions["pacman"], is_ghost=False)
-        self.pacman_dir = actions["pacman"]
+        self.pacman_dir = self._move_entity(self.pacman_pos, actions["pacman"], self.pacman_dir, is_ghost=False)
         
         # Update Ghosts
         for name in self.ghost_positions:
             if name in actions:
-                self._move_entity(self.ghost_positions[name], actions[name], is_ghost=True)
-                self.ghost_dirs[name] = actions[name]
+                self.ghost_dirs[name] = self._move_entity(self.ghost_positions[name], actions[name], self.ghost_dirs[name], is_ghost=True)
         
         rewards = {name: float(REWARD_STEP) for name in actions}
         env_done = False
@@ -147,17 +145,30 @@ class PacmanEnv(gym.Env):
         
         return self._get_obs(), rewards, env_done, False, self._get_info()
 
-    def _move_entity(self, pos: List[int], action: int, is_ghost: bool) -> None:
+    def _move_entity(self, pos: List[int], action: int, current_dir: int, is_ghost: bool) -> int:
+        # returns the actual direction moved
         dx, dy = DIR_OFFSETS[action]
         next_x = (pos[0] + dx) % self.level.width
         next_y = (pos[1] + dy) % self.level.height
         
+        # Try new action
         if not self.level.walls[next_y][next_x]:
-            if not is_ghost and self.level.pacman_barrier[next_y][next_x]:
-                return
-            
-            pos[0] = next_x
-            pos[1] = next_y
+            if is_ghost or not self.level.pacman_barrier[next_y][next_x]:
+                pos[0], pos[1] = next_x, next_y
+                return action
+        
+        # If new action failed, try current momentum
+        dx, dy = DIR_OFFSETS[current_dir]
+        next_x = (pos[0] + dx) % self.level.width
+        next_y = (pos[1] + dy) % self.level.height
+        
+        if not self.level.walls[next_y][next_x]:
+            if is_ghost or not self.level.pacman_barrier[next_y][next_x]:
+                pos[0], pos[1] = next_x, next_y
+                return current_dir
+                
+        # If still stuck, stay but return current_dir (momentum preserved)
+        return current_dir
 
     def render(self) -> None:
         if self.render_mode == "human":
