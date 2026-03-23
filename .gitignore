@@ -6,3 +6,4 @@ __pycache__/
 /home/nabi/Projects/Python/advancde_ai_2/agents.py
 /home/nabi/Projects/Python/advancde_ai_2/level_loader.py
 /home/nabi/Projects/Python/advancde_ai_2/pacman_env.py
+.env

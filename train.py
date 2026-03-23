@@ -97,7 +97,12 @@ def train() -> None:
                 from src.utils.telegram import send_telegram_document, send_telegram_video
                 send_telegram_video(video_path, caption=f"Pac-Man Replay Episode {episode}")
                 for name in agents:
-                    send_telegram_document(f"weights/{name}_ep{episode}.pth", caption=f"{name} weights Ep {episode}")
+                    w_path = f"weights/{name}_ep{episode}.pth"
+                    send_telegram_document(w_path, caption=f"{name} weights Ep {episode}")
+                    # Delete after sending to save space
+                    if os.path.exists(w_path): os.remove(w_path)
+                
+                if os.path.exists(video_path): os.remove(video_path)
 
     save_mar_weights(agents, "final")
     env.close()
