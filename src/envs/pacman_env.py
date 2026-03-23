@@ -160,42 +160,46 @@ class PacmanEnv(gym.Env):
             pos[1] = next_y
 
     def render(self) -> None:
-        if self.render_mode != "human":
-            return
+        if self.render_mode == "human":
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.done = True
+            self._draw_to_surface(self.screen)
+            pygame.display.flip()
+            self.clock.tick(self.metadata["render_fps"])
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.done = True
+    def render_array(self) -> np.ndarray:
+        surface = pygame.Surface((self.width, self.height))
+        self._draw_to_surface(surface)
+        return pygame.surfarray.array3d(surface).transpose(1, 0, 2)
 
-        self.screen.fill(BG_COLOR)
+    def _draw_to_surface(self, surface: pygame.Surface) -> None:
+        surface.fill(BG_COLOR)
         
         for y in range(self.level.height):
             for x in range(self.level.width):
                 rect = (x * self.cell_size, y * self.cell_size, self.cell_size, self.cell_size)
                 
                 if self.level.walls[y][x]:
-                    pygame.draw.rect(self.screen, WALL_COLOR, rect)
+                    pygame.draw.rect(surface, WALL_COLOR, rect)
                 elif self.pills[y][x]:
                     center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
-                    pygame.draw.circle(self.screen, PILL_COLOR, center, 2)
+                    pygame.draw.circle(surface, PILL_COLOR, center, 2)
                 elif self.power_pills[y][x]:
                     center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
-                    pygame.draw.circle(self.screen, PILL_COLOR, center, 6)
+                    pygame.draw.circle(surface, PILL_COLOR, center, 6)
                 elif self.level.pacman_barrier[y][x]:
-                    pygame.draw.rect(self.screen, BARRIER_COLOR, rect)
+                    pygame.draw.rect(surface, BARRIER_COLOR, rect)
 
         px, py = self.pacman_pos
         p_center = (px * self.cell_size + self.cell_size // 2, py * self.cell_size + self.cell_size // 2)
-        pygame.draw.circle(self.screen, PACMAN_COLOR, p_center, self.cell_size // 2)
+        pygame.draw.circle(surface, PACMAN_COLOR, p_center, self.cell_size // 2)
 
         for name, pos in self.ghost_positions.items():
             gx, gy = pos
             color = GHOST_COLORS.get(name, (200, 200, 200))
             g_rect = (gx * self.cell_size + 2, gy * self.cell_size + 2, self.cell_size - 4, self.cell_size - 4)
-            pygame.draw.rect(self.screen, color, g_rect)
-
-        pygame.display.flip()
-        self.clock.tick(self.metadata["render_fps"])
+            pygame.draw.rect(surface, color, g_rect)
 
     def close(self) -> None:
         if self.render_mode == "human":

@@ -98,6 +98,13 @@ class DQNAgent:
     def update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
+    def save(self, path: str) -> None:
+        torch.save(self.policy_net.state_dict(), path)
+
+    def load(self, path: str) -> None:
+        self.policy_net.load_state_dict(torch.load(path, map_location=DEVICE))
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+
 def preprocess_obs(obs: np.ndarray) -> torch.Tensor:
     # 0: Empty, 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost
     # Convert to 6-channel one-hot: Wall, Pill, PowerPill, Pacman, Ghost, Barrier
