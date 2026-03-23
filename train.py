@@ -59,21 +59,22 @@ def train() -> None:
     
     epsilon = EPS_START
     total_steps = 0
-    episode = 0
+    episode = 1
+    metrics_history = []
     
     print(f"Training on {DEVICE}...")
     
-    while episode < 1000:
+    while episode <= 1000:
         obs, info = env.reset()
-        state = preprocess_obs(obs)
-        episode_reward = 0
+        episode_reward = {name: 0.0 for name in agents}
+        steps = 0
         done = False
         
         while not done:
             actions = {}
             for name, agent in agents.items():
                 state_tensor = preprocess_obs(obs)
-                actions[name] = agent.select_action(state_tensor)
+                actions[name] = agent.select_action(state_tensor, epsilon)
             
             next_obs, rewards, env_done, _, info = env.step(actions)
             
@@ -86,6 +87,9 @@ def train() -> None:
             
             obs = next_obs
             steps += 1
+            total_steps += 1
+            epsilon = max(EPS_END, epsilon * EPS_DECAY)
+
             if env_done or steps > 1000:
                 done = True
 
@@ -104,7 +108,6 @@ def train() -> None:
         # Every 10 episodes: Save & Notify
         if episode % 10 == 0:
             from src.utils.metrics import save_metrics, format_summary
-            from src.utils.telegram import send_telegram_message
             save_metrics(metrics_history, episode)
             summary = format_summary(metrics_history, window=10)
             send_telegram_message(summary)
@@ -125,6 +128,8 @@ def train() -> None:
                 if os.path.exists(w_path): os.remove(w_path)
             
             if os.path.exists(video_path): os.remove(video_path)
+
+        episode += 1
 
     save_mar_weights(agents, "final")
     env.close()
