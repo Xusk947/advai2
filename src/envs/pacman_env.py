@@ -208,15 +208,11 @@ class PacmanEnv(gym.Env):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.done = True
-            self._draw_to_surface(self.screen)
+            self._src_draw()
             pygame.display.flip()
             self.clock.tick(self.metadata["render_fps"])
 
     def render_array(self) -> np.ndarray:
-        surface = pygame.Surface((self.width, self.height))
-        self._draw_to_surface(surface)
-        return pygame.surfarray.array3d(surface).transpose(1, 0, 2)
-
     def _draw_to_surface(self, surface: pygame.Surface) -> None:
         surface.fill(BG_COLOR)
         
