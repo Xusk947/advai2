@@ -59,13 +59,13 @@ class PacmanEnv(gym.Env):
         
         self.score = 0
         self.done = False
-        self.dead_ghosts = set()
+        self.frightened_timer = 0
         
         return self._get_obs(), self._get_info()
 
     def _get_obs(self) -> np.ndarray:
         # Construct grid observation
-        # 0: Empty, 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost
+        # 0: Empty, 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost, 6: Frightened Ghost
         obs = np.zeros((self.level.height, self.level.width), dtype=np.int8)
         
         for y in range(self.level.height):
@@ -79,8 +79,9 @@ class PacmanEnv(gym.Env):
         
         obs[self.pacman_pos[1]][self.pacman_pos[0]] = 4
         
+        g_val = 6 if self.frightened_timer > 0 else 5
         for pos in self.ghost_positions.values():
-            obs[pos[1]][pos[0]] = 5
+            obs[pos[1]][pos[0]] = g_val
             
         return obs
 
@@ -90,14 +91,16 @@ class PacmanEnv(gym.Env):
             "pacman_pos": tuple(self.pacman_pos),
             "ghost_positions": self.ghost_positions,
             "pills": self.pills,
-            "walls": self.level.walls,
-            "pacman_barrier": self.level.pacman_barrier
+            "frightened": self.frightened_timer > 0
         }
 
     def step(self, actions: Dict[str, int]) -> Tuple[np.ndarray, Dict[str, float], bool, bool, Dict]:
-        # actions contains {"pacman": act, "blinky": act, ...}
         if self.done:
             return self._get_obs(), {k: 0.0 for k in actions}, True, False, self._get_info()
+
+        # Tick frightened timer
+        if self.frightened_timer > 0:
+            self.frightened_timer -= 1
 
         # Update Pacman
         self.pacman_dir = self._move_entity(self.pacman_pos, actions["pacman"], self.pacman_dir, is_ghost=False)
@@ -114,11 +117,18 @@ class PacmanEnv(gym.Env):
         pac_pos = tuple(self.pacman_pos)
         for name, g_pos in self.ghost_positions.items():
             if tuple(g_pos) == pac_pos:
-                # Pacman dies
-                rewards["pacman"] = float(REWARD_DIE)
-                rewards[name] = 50.0  # Reward ghost for catching Pacman
-                env_done = True
-                self.done = True
+                if self.frightened_timer > 0:
+                    # Pacman eats ghost
+                    rewards["pacman"] += float(REWARD_GHOST)
+                    rewards[name] -= 100.0
+                    # Ghost respawns
+                    self.ghost_positions[name] = list(self.level.ghost_starts[name])
+                else:
+                    # Pacman dies
+                    rewards["pacman"] = float(REWARD_DIE)
+                    rewards[name] += 50.0  
+                    env_done = True
+                    self.done = True
                 break
         
         if not self.done:
@@ -134,6 +144,7 @@ class PacmanEnv(gym.Env):
                 self.power_pills[py][px] = False
                 self.score += 50
                 rewards["pacman"] += float(REWARD_POWER_PILL)
+                self.frightened_timer = 50 # Original duration
             
             # Win condition
             if not any(any(row) for row in self.pills) and not any(any(row) for row in self.power_pills):

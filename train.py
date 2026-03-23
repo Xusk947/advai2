@@ -42,6 +42,13 @@ def record_video(agents: Dict[str, DQNAgent], env: PacmanEnv, filename: str) -> 
         out.release()
 
 def train() -> None:
+    # Mandatory Telegram Check
+    from src.utils.telegram import send_telegram_message
+    if not send_telegram_message("🚀 Обучение на Kaggle началось!"):
+        print("CRITICAL: BOT_TOKEN or CHAT_ID is missing or invalid. Telegram notification failed.")
+        print("The script will now exit as requested.")
+        return
+
     # Use render_mode="rgb_array" for video capture
     env = PacmanEnv(level_path="assets/level1.png", render_mode="rgb_array")
     h, w = env.level.height, env.level.width
