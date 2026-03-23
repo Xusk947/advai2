@@ -51,8 +51,9 @@ class PacmanEnv(gym.Env):
         self.pacman_pos = list(self.level.pacman_start)
         self.pacman_dir = RIGHT
         
-        self.ghost_positions = {name: list(pos) for name, pos in self.level.ghost_starts.items()}
         self.ghost_dirs = {name: UP for name in self.ghost_positions}
+        # States: "alive", "frightened", "dead"
+        self.ghost_states = {name: "alive" for name in self.ghost_positions}
         
         self.pills = [row[:] for row in self.level.pills]
         self.power_pills = [row[:] for row in self.level.power_pills]
@@ -65,7 +66,7 @@ class PacmanEnv(gym.Env):
 
     def _get_obs(self) -> np.ndarray:
         # Construct grid observation
-        # 0: Empty, 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost, 6: Frightened Ghost
+        # 0: Empty, 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost, 6: Frightened, 7: Dead
         obs = np.zeros((self.level.height, self.level.width), dtype=np.int8)
         
         for y in range(self.level.height):
@@ -79,9 +80,12 @@ class PacmanEnv(gym.Env):
         
         obs[self.pacman_pos[1]][self.pacman_pos[0]] = 4
         
-        g_val = 6 if self.frightened_timer > 0 else 5
-        for pos in self.ghost_positions.values():
-            obs[pos[1]][pos[0]] = g_val
+        for name, pos in self.ghost_positions.items():
+            state = self.ghost_states[name]
+            if state == "dead": val = 7
+            elif self.frightened_timer > 0: val = 6
+            else: val = 5
+            obs[pos[1]][pos[0]] = val
             
         return obs
 
@@ -107,22 +111,40 @@ class PacmanEnv(gym.Env):
         
         # Update Ghosts
         for name in self.ghost_positions:
-            if name in actions:
+            if self.ghost_states[name] == "dead":
+                # Dead ghosts move automatically towards start
+                target = self.level.ghost_starts[name]
+                curr = self.ghost_positions[name]
+                # Simple greedy movement
+                best_action = self.ghost_dirs[name]
+                min_dist = 1e9
+                for act in [UP, DOWN, LEFT, RIGHT]:
+                    dx, dy = DIR_OFFSETS[act]
+                    nx, ny = (curr[0] + dx) % self.level.width, (curr[1] + dy) % self.level.height
+                    if not self.level.walls[ny][nx]:
+                        dist = abs(nx - target[0]) + abs(ny - target[1])
+                        if dist < min_dist:
+                            min_dist = dist
+                            best_action = act
+                self.ghost_dirs[name] = self._move_entity(self.ghost_positions[name], best_action, self.ghost_dirs[name], is_ghost=True)
+                
+                # Check if arrived
+                if tuple(self.ghost_positions[name]) == target:
+                    self.ghost_states[name] = "alive"
+            elif name in actions:
                 self.ghost_dirs[name] = self._move_entity(self.ghost_positions[name], actions[name], self.ghost_dirs[name], is_ghost=True)
         
         rewards = {name: float(REWARD_STEP) for name in actions}
         env_done = False
         
-        # Collision detection
         pac_pos = tuple(self.pacman_pos)
         for name, g_pos in self.ghost_positions.items():
-            if tuple(g_pos) == pac_pos:
+            if tuple(g_pos) == pac_pos and self.ghost_states[name] != "dead":
                 if self.frightened_timer > 0:
                     # Pacman eats ghost
                     rewards["pacman"] += float(REWARD_GHOST)
                     rewards[name] -= 100.0
-                    # Ghost respawns
-                    self.ghost_positions[name] = list(self.level.ghost_starts[name])
+                    self.ghost_states[name] = "dead"
                 else:
                     # Pacman dies
                     rewards["pacman"] = float(REWARD_DIE)

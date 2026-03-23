@@ -15,8 +15,8 @@ from src.config import (
 class DQN(nn.Module):
     def __init__(self, h: int, w: int, outputs: int) -> None:
         super().__init__()
-        # Input channel 7: Wall, Pill, PowerPill, Pacman, Ghost, Barrier, FrightenedGhost
-        self.conv1 = nn.Conv2d(7, 16, kernel_size=3, stride=1, padding=1)
+        # Input channel 8: Wall, Pill, PowerPill, Pacman, Ghost, Barrier, FrightenedGhost, DeadGhost
+        self.conv1 = nn.Conv2d(8, 16, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
         
         def conv2d_size_out(size: int, kernel_size: int = 3, stride: int = 1, padding: int = 1) -> int:
@@ -106,13 +106,12 @@ class DQNAgent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
 def preprocess_obs(obs: np.ndarray) -> torch.Tensor:
-    # 0: Empty, 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost, 6: Frightened Ghost
+    # 0: Empty, 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost, 6: Frightened Ghost, 7: Dead Ghost
     h, w = obs.shape
-    tensor = torch.zeros((1, 7, h, w), device=DEVICE)
+    tensor = torch.zeros((1, 8, h, w), device=DEVICE)
     
-    for val in range(1, 7):
-        # Val 1-6 maps to channels 0-5. Channel 6 (Barrier) can be added if needed.
-        # Actually value 1: Wall, 2: Pill, 3: Power Pill, 4: Pacman, 5: Ghost, 6: Frightened Ghost
+    for val in range(1, 8):
+        # Val 1-7 maps to channels 0-6. 
         tensor[0, val-1] = torch.from_numpy(obs == val).float().to(DEVICE)
     
     return tensor
