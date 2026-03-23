@@ -1,0 +1,26 @@
+[
+  {
+    "episode": 1,
+    "world": {
+      "score": 380,
+      "length": 99
+    },
+    "agents": {
+      "pacman": {
+        "reward": -218.0
+      },
+      "blinky": {
+        "reward": -99.0
+      },
+      "pinky": {
+        "reward": -99.0
+      },
+      "inky": {
+        "reward": -49.0
+      },
+      "clyde": {
+        "reward": -99.0
+      }
+    }
+  }
+]
