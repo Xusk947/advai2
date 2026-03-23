@@ -200,7 +200,16 @@ class PacmanEnv(gym.Env):
                 pos[0], pos[1] = next_x, next_y
                 return current_dir
                 
-        # If still stuck, stay but return current_dir (momentum preserved)
+        if is_ghost:
+            # If still stuck, ghosts MUST move
+            for act in [UP, DOWN, LEFT, RIGHT]:
+                dx, dy = DIR_OFFSETS[act]
+                next_x = (pos[0] + dx) % self.level.width
+                next_y = (pos[1] + dy) % self.level.height
+                if not self.level.walls[next_y][next_x]:
+                    pos[0], pos[1] = next_x, next_y
+                    return act
+                    
         return current_dir
 
     def render(self) -> None:
