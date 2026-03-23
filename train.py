@@ -70,46 +70,61 @@ def train() -> None:
         done = False
         
         while not done:
-            actions = {name: agent.select_action(state, epsilon) for name, agent in agents.items()}
-            next_obs, rewards, done, truncated, info = env.step(actions)
-            next_state = preprocess_obs(next_obs)
+            actions = {}
+            for name, agent in agents.items():
+                state_tensor = preprocess_obs(obs)
+                actions[name] = agent.select_action(state_tensor)
+            
+            next_obs, rewards, env_done, _, info = env.step(actions)
             
             for name, agent in agents.items():
-                agent.memory.push(state, actions[name], next_state, rewards.get(name, 0.0), done)
+                episode_reward[name] += rewards[name]
+                state_tensor = preprocess_obs(obs)
+                next_state_tensor = preprocess_obs(next_obs)
+                agent.memory.push(state_tensor, actions[name], torch.tensor([rewards[name]], device=DEVICE), next_state_tensor, torch.tensor([env_done], device=DEVICE))
+                agent.optimize_model()
             
-            state = next_state
-            episode_reward += rewards.get("pacman", 0.0)
-            total_steps += 1
-            
-            if total_steps > TRAIN_START:
-                for agent in agents.values():
-                    agent.optimize_model()
-                    
-                if total_steps % TARGET_UPDATE_FREQ == 0:
-                    for agent in agents.values():
-                        agent.update_target_network()
-            
-            epsilon = max(EPS_END, epsilon * EPS_DECAY)
-            
-        episode += 1
+            obs = next_obs
+            steps += 1
+            if env_done or steps > 1000:
+                done = True
+
+        # End of episode
+        for agent in agents.values():
+            agent.update_target()
         
-        if episode % 50 == 0:
-            print(f"Episode {episode}, Steps {total_steps}, Pacman Reward: {episode_reward:.1f}")
-            save_mar_weights(agents, episode)
+        # Collect Metrics
+        ep_metrics = {
+            "episode": episode,
+            "world": {"score": info["score"], "length": steps},
+            "agents": {name: {"reward": episode_reward[name]} for name in agents}
+        }
+        metrics_history.append(ep_metrics)
+
+        # Every 10 episodes: Save & Notify
+        if episode % 10 == 0:
+            from src.utils.metrics import save_metrics, format_summary
+            from src.utils.telegram import send_telegram_message
+            save_metrics(metrics_history, episode)
+            summary = format_summary(metrics_history, window=10)
+            send_telegram_message(summary)
+
+        # Recordings and Weights at milestones (100, 500, 1000)
+        if episode in [100, 500, 1000]:
+            print(f"Recording episode {episode}...")
             video_path = f"replay_ep{episode}.mp4"
             record_video(agents, env, video_path)
+            save_mar_weights(agents, f"ep{episode}")
             
-            # Send to Telegram at specific milestones
-            if episode in [100, 500, 1000]:
-                from src.utils.telegram import send_telegram_document, send_telegram_video
-                send_telegram_video(video_path, caption=f"Pac-Man Replay Episode {episode}")
-                for name in agents:
-                    w_path = f"weights/{name}_ep{episode}.pth"
-                    send_telegram_document(w_path, caption=f"{name} weights Ep {episode}")
-                    # Delete after sending to save space
-                    if os.path.exists(w_path): os.remove(w_path)
-                
-                if os.path.exists(video_path): os.remove(video_path)
+            # Send to Telegram
+            from src.utils.telegram import send_telegram_document, send_telegram_video
+            send_telegram_video(video_path, caption=f"Pac-Man Replay Episode {episode}")
+            for name in agents:
+                w_path = f"weights/{name}_ep{episode}.pth"
+                send_telegram_document(w_path, caption=f"{name} weights Ep {episode}")
+                if os.path.exists(w_path): os.remove(w_path)
+            
+            if os.path.exists(video_path): os.remove(video_path)
 
     save_mar_weights(agents, "final")
     env.close()
