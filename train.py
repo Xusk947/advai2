@@ -89,7 +89,15 @@ def train() -> None:
         if episode % 50 == 0:
             print(f"Episode {episode}, Steps {total_steps}, Pacman Reward: {episode_reward:.1f}")
             save_mar_weights(agents, episode)
-            record_video(agents, env, f"replay_ep{episode}.mp4")
+            video_path = f"replay_ep{episode}.mp4"
+            record_video(agents, env, video_path)
+            
+            # Send to Telegram at specific milestones
+            if episode in [100, 500, 1000]:
+                from src.utils.telegram import send_telegram_document, send_telegram_video
+                send_telegram_video(video_path, caption=f"Pac-Man Replay Episode {episode}")
+                for name in agents:
+                    send_telegram_document(f"weights/{name}_ep{episode}.pth", caption=f"{name} weights Ep {episode}")
 
     save_mar_weights(agents, "final")
     env.close()

@@ -67,6 +67,11 @@ CLYDE_SCATTER_DISTANCE = 8
 PINKY_TARGET_OFFSET = 4
 INKY_TARGET_OFFSET = 2
 
+# Telegram Config
+import os
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+
 # Device
 import torch
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
