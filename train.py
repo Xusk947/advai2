@@ -82,7 +82,7 @@ def train() -> None:
                 episode_reward[name] += rewards[name]
                 state_tensor = preprocess_obs(obs)
                 next_state_tensor = preprocess_obs(next_obs)
-                agent.memory.push(state_tensor, actions[name], torch.tensor([rewards[name]], device=DEVICE), next_state_tensor, torch.tensor([env_done], device=DEVICE))
+                agent.memory.push(state_tensor, actions[name], next_state_tensor, rewards[name], env_done)
                 agent.optimize_model()
             
             obs = next_obs

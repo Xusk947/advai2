@@ -70,6 +70,9 @@ POWER_PILL_DURATION = 50 # steps
 
 # Telegram Config
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 

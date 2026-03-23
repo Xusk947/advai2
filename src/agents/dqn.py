@@ -95,7 +95,7 @@ class DQNAgent:
         
         return loss.item()
 
-    def update_target_network(self) -> None:
+    def update_target(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def save(self, path: str) -> None:
