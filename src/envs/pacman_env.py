@@ -208,14 +208,24 @@ class PacmanEnv(gym.Env):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.done = True
-            self._src_draw()
+            
+            self.screen.fill(BG_COLOR)
+            self._draw_to_surface(self.screen)
             pygame.display.flip()
             self.clock.tick(self.metadata["render_fps"])
 
     def render_array(self) -> np.ndarray:
+        if self.render_mode != "rgb_array":
+            return np.zeros((self.height, self.width, 3), dtype=np.uint8)
+            
+        surface = pygame.Surface((self.width, self.height))
+        self._draw_to_surface(surface)
+        return pygame.surfarray.array3d(surface).transpose(1, 0, 2)
+
     def _draw_to_surface(self, surface: pygame.Surface) -> None:
         surface.fill(BG_COLOR)
         
+        # Draw Walls and Pills
         for y in range(self.level.height):
             for x in range(self.level.width):
                 rect = (x * self.cell_size, y * self.cell_size, self.cell_size, self.cell_size)
@@ -231,13 +241,23 @@ class PacmanEnv(gym.Env):
                 elif self.level.pacman_barrier[y][x]:
                     pygame.draw.rect(surface, BARRIER_COLOR, rect)
 
+        # Draw Pacman
         px, py = self.pacman_pos
         p_center = (px * self.cell_size + self.cell_size // 2, py * self.cell_size + self.cell_size // 2)
-        pygame.draw.circle(surface, PACMAN_COLOR, p_center, self.cell_size // 2)
+        pygame.draw.circle(surface, PACMAN_COLOR, p_center, self.cell_size // 2 - 2)
 
+        # Draw Ghosts
         for name, pos in self.ghost_positions.items():
+            state = self.ghost_states[name]
             gx, gy = pos
-            color = GHOST_COLORS.get(name, (200, 200, 200))
+            
+            if state == "dead":
+                color = (255, 255, 255) # White Eyes
+            elif self.frightened_timer > 0:
+                color = (0, 0, 255) # Blue Frightened
+            else:
+                color = GHOST_COLORS.get(name, (200, 200, 200))
+                
             g_rect = (gx * self.cell_size + 2, gy * self.cell_size + 2, self.cell_size - 4, self.cell_size - 4)
             pygame.draw.rect(surface, color, g_rect)
 
