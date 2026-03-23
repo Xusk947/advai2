@@ -64,7 +64,7 @@ def train() -> None:
     
     print(f"Training on {DEVICE}...")
     
-    while episode <= 1000:
+    while episode <= 10000: # Increased limit
         obs, info = env.reset()
         episode_reward = {name: 0.0 for name in agents}
         steps = 0
@@ -105,33 +105,35 @@ def train() -> None:
         }
         metrics_history.append(ep_metrics)
 
-        # Every 10 episodes: Save & Notify
-        if episode % 10 == 0:
+        # Recordings, Weights, and Detailed Metrics at milestones: 100, 500, 1000, 2000, ...
+        is_milestone = episode in [100, 500, 1000] or (episode > 1000 and episode % 1000 == 0)
+        
+        if is_milestone:
+            print(f"Reached milestone: episode {episode}. Collecting data...")
+            
+            # 1. Metrics Summary & JSON
             from src.utils.metrics import save_metrics, format_summary
-            from src.utils.telegram import send_telegram_message, send_telegram_document
+            from src.utils.telegram import send_telegram_message, send_telegram_document, send_telegram_video
+            
             results_path = "metrics/stats.json"
             save_metrics(metrics_history, episode)
-            summary = format_summary(metrics_history, window=10)
+            summary = format_summary(metrics_history, window=100 if episode >= 100 else episode)
             send_telegram_message(summary)
             if os.path.exists(results_path):
                 send_telegram_document(results_path, caption=f"Full Stats up to Episode {episode}")
 
-        # Recordings and Weights at milestones (100, 500, 1000)
-        if episode in [100, 500, 1000]:
-            print(f"Recording episode {episode}...")
+            # 2. Recording
             video_path = f"replay_ep{episode}.mp4"
             record_video(agents, env, video_path)
-            save_mar_weights(agents, f"ep{episode}")
-            
-            # Send to Telegram
-            from src.utils.telegram import send_telegram_document, send_telegram_video
             send_telegram_video(video_path, caption=f"Pac-Man Replay Episode {episode}")
+            if os.path.exists(video_path): os.remove(video_path)
+
+            # 3. Weights
+            save_mar_weights(agents, f"ep{episode}")
             for name in agents:
                 w_path = f"weights/{name}_ep{episode}.pth"
                 send_telegram_document(w_path, caption=f"{name} weights Ep {episode}")
                 if os.path.exists(w_path): os.remove(w_path)
-            
-            if os.path.exists(video_path): os.remove(video_path)
 
         episode += 1
 
