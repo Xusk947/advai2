@@ -3,6 +3,7 @@ import numpy as np
 import os
 from typing import Dict, List
 import cv2
+import time
 
 from src.envs.pacman_env import PacmanEnv
 from src.agents.dqn import DQNAgent, preprocess_obs
@@ -48,6 +49,8 @@ def train() -> None:
         print("CRITICAL: BOT_TOKEN or CHAT_ID is missing or invalid. Telegram notification failed.")
         print("The script will now exit as requested.")
         return
+
+    start_time = time.time()
 
     # Use render_mode="rgb_array" for video capture
     env = PacmanEnv(level_path="assets/level1.png", render_mode="rgb_array")
@@ -115,12 +118,25 @@ def train() -> None:
             from src.utils.metrics import save_metrics, format_summary
             from src.utils.telegram import send_telegram_message, send_telegram_document, send_telegram_video
             
-            results_path = "metrics/stats.json"
-            save_metrics(metrics_history, episode)
-            summary = format_summary(metrics_history, window=100 if episode >= 100 else episode)
+            window = 100 if episode >= 100 else episode
+            recent = metrics_history[-window:]
+            start_ep = recent[0]["episode"]
+            end_ep = recent[-1]["episode"]
+
+            results_filename = f"stats_ep{start_ep}-{end_ep}.json"
+            save_metrics(metrics_history, results_filename)
+            
+            summary = format_summary(
+                metrics_history, 
+                window=window, 
+                total_episodes=episode,
+                duration=time.time() - start_time
+            )
             send_telegram_message(summary)
+            
+            results_path = f"metrics/{results_filename}"
             if os.path.exists(results_path):
-                send_telegram_document(results_path, caption=f"Full Stats up to Episode {episode}")
+                send_telegram_document(results_path, caption=f"Full Stats Eps {start_ep}-{end_ep}")
 
             # 2. Recording
             video_path = f"replay_ep{episode}.mp4"
@@ -129,7 +145,7 @@ def train() -> None:
             if os.path.exists(video_path): os.remove(video_path)
 
             # 3. Weights
-            save_mar_weights(agents, f"ep{episode}")
+            save_mar_weights(agents, episode)
             for name in agents:
                 w_path = f"weights/{name}_ep{episode}.pth"
                 send_telegram_document(w_path, caption=f"{name} weights Ep {episode}")

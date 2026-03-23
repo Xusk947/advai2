@@ -3,14 +3,12 @@ import os
 import numpy as np
 from typing import Dict, List
 
-def save_metrics(metrics_history: List[Dict], episode: int):
-    results_path = "metrics/stats.json"
+def save_metrics(metrics_history: List[Dict], filename: str):
     os.makedirs("metrics", exist_ok=True)
-    
-    with open(results_path, "w") as f:
+    with open(f"metrics/{filename}", "w") as f:
         json.dump(metrics_history, f, indent=2)
 
-def format_summary(metrics_history: List[Dict], window: int = 10) -> str:
+def format_summary(metrics_history: List[Dict], window: int = 10, total_episodes: int = 0, duration: float = 0.0) -> str:
     recent = metrics_history[-window:]
     if not recent: return "No data."
     
@@ -18,9 +16,14 @@ def format_summary(metrics_history: List[Dict], window: int = 10) -> str:
     avg_score = np.mean([m["world"]["score"] for m in recent])
     avg_len = np.mean([m["world"]["length"] for m in recent])
     
-    summary = f"📊 *Evaluation (Last {window} Eps)*\n"
+    start_ep = recent[0]["episode"]
+    end_ep = recent[-1]["episode"]
+
+    summary = f"📊 *Evaluation (Eps {start_ep}-{end_ep})*\n"
+    summary += f"🏁 Total Episodes: {total_episodes}\n"
+    summary += f"⏱️ Total Time: {duration/60:.1f} min\n"
     summary += f"🏆 Avg Score: {avg_score:.1f}\n"
-    summary += f"⏱️ Avg Length: {avg_len:.1f}\n\n"
+    summary += f"⌛ Avg Length: {avg_len:.1f}\n\n"
     
     # Agent metrics
     agents = recent[0]["agents"].keys()
