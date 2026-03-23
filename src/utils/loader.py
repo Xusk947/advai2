@@ -3,12 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
+import PIL.Image as Image
 
-from PIL import Image
-
+from src.config import (
+    WALL_RGB, NO_PILL_RGB, PACMAN_RGB, POWER_PILL_RGB, 
+    BARRIER_RGB, GHOST_HEX_TO_NAME
+)
 
 GridPos = Tuple[int, int]
-
 
 @dataclass
 class LevelDefinition:
@@ -22,24 +24,7 @@ class LevelDefinition:
     pacman_start: GridPos
     ghost_starts: Dict[str, GridPos]
 
-
 class LevelLoader:
-    """
-    Loads a level layout from a PNG image
-
-    Color semantics for level1.png, hex without alpha:
-    - 000000, walls
-    - AC3131, play area without pills
-    - FBF236, Pacman start cell
-    - FFFFFF, power pills
-    - D67BBA, pink ghost, Pinky
-    - DF7026, orange ghost, Clyde
-    - D85662, red ghost, Blinky
-    - 5ECDE4, cyan ghost, Inky
-    - 896E2F, Pacman barrier, ghosts may pass through
-    - alpha equals zero, regular pill
-    """
-
     def __init__(self, image_path: str | Path) -> None:
         self.image_path = str(image_path)
 
@@ -60,19 +45,6 @@ class LevelLoader:
 
         pacman_start: GridPos | None = None
         ghost_starts: Dict[str, GridPos] = {}
-
-        WALL_RGB = (0x00, 0x00, 0x00)
-        NO_PILL_RGB = (0xAC, 0x31, 0x31)
-        PACMAN_RGB = (0xFB, 0xF2, 0x36)
-        POWER_PILL_RGB = (0xFF, 0xFF, 0xFF)
-        BARRIER_RGB = (0x89, 0x6E, 0x2F)
-
-        ghost_hex_to_name: Dict[str, str] = {
-            "D85662": "blinky",
-            "D67BBA": "pinky",
-            "5ECDE4": "inky",
-            "DF7026": "clyde",
-        }
 
         for y in range(height):
             for x in range(width):
@@ -95,14 +67,14 @@ class LevelLoader:
                     no_pill_zone[y][x] = True
                 elif rgb == BARRIER_RGB:
                     pacman_barrier[y][x] = True
-                elif rgb_hex in ghost_hex_to_name:
-                    ghost_key = ghost_hex_to_name[rgb_hex]
+                elif rgb_hex in GHOST_HEX_TO_NAME:
+                    ghost_key = GHOST_HEX_TO_NAME[rgb_hex]
                     ghost_starts[ghost_key] = (x, y)
                 else:
                     pills[y][x] = True
 
         if pacman_start is None:
-            raise ValueError("Pacman start position not found in level image")
+            raise ValueError("Pacman start position not found")
 
         px, py = pacman_start
         pills[py][px] = False

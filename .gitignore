@@ -1,22 +1,8 @@
-# Python / venv
-__pycache__/
-*.py[cod]
-*.pyo
 .venv/
-venv/
-
-# IDE / editor
-.vscode/
-.idea/
-*.code-workspace
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Checkpoints и артефакты обучения
-checkpoints/
-
-# Docker
-*.log
-
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.cursor/
+/home/nabi/Projects/Python/advancde_ai_2/agents.py
+/home/nabi/Projects/Python/advancde_ai_2/level_loader.py
+/home/nabi/Projects/Python/advancde_ai_2/pacman_env.py
