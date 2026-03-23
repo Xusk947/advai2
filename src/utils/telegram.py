@@ -1,3 +1,7 @@
+import requests
+from typing import Optional
+from src.config import BOT_TOKEN, CHAT_ID
+
 def send_telegram_message(message: str) -> bool:
     if not BOT_TOKEN or not CHAT_ID:
         return False
