@@ -106,7 +106,7 @@ def train() -> None:
         metrics_history.append(ep_metrics)
 
         # Recordings, Weights, and Detailed Metrics at milestones: 100, 500, 1000, 2000, ...
-        is_milestone = episode in [100, 500, 1000] or (episode > 1000 and episode % 1000 == 0)
+        is_milestone = episode in [1, 100, 500, 1000] or (episode > 1000 and episode % 1000 == 0)
         
         if is_milestone:
             print(f"Reached milestone: episode {episode}. Collecting data...")
