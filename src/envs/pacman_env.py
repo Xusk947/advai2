@@ -50,7 +50,7 @@ class PacmanEnv(gym.Env):
         
         self.pacman_pos = list(self.level.pacman_start)
         self.pacman_dir = RIGHT
-        
+        self.ghost_positions = {name: list(pos) for name, pos in self.level.ghost_starts.items()}
         self.ghost_dirs = {name: UP for name in self.ghost_positions}
         # States: "alive", "frightened", "dead"
         self.ghost_states = {name: "alive" for name in self.ghost_positions}
