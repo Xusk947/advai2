@@ -108,9 +108,13 @@ def train() -> None:
         # Every 10 episodes: Save & Notify
         if episode % 10 == 0:
             from src.utils.metrics import save_metrics, format_summary
+            from src.utils.telegram import send_telegram_message, send_telegram_document
+            results_path = "metrics/stats.json"
             save_metrics(metrics_history, episode)
             summary = format_summary(metrics_history, window=10)
             send_telegram_message(summary)
+            if os.path.exists(results_path):
+                send_telegram_document(results_path, caption=f"Full Stats up to Episode {episode}")
 
         # Recordings and Weights at milestones (100, 500, 1000)
         if episode in [100, 500, 1000]:
